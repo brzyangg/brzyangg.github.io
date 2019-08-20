@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>
-
+Thrift Layer
 </title>
 
   
   
-  <meta name="author" content="YangGuang" />
-  <meta name="description" content="Just a random blog for random stuff, mostly tech-related." />
+  <meta name="author" content="Yang Guang" />
+  <meta name="description" content="thrift分层结构解析
+" />
 
 
 
@@ -23,7 +24,7 @@
 <meta name="generator" content="Hugo 0.56.3" />
 
 
-<link rel="canonical" href="https://brzyangg.github.io/about/desc/" />
+<link rel="canonical" href="https://brzyangg.github.io/post/thrift-layer/" />
 <link rel="alternative" href="/index.xml" title="杨洸的博客" type="application/atom+xml" />
 
 <link href="/css/semantic.min.css" rel="stylesheet" />
@@ -58,16 +59,131 @@
       </a>
       <header>
         <h1 class="ui header">
-          
-          <div class="sub header">@ YangGuang · Jan 1, 0001 · 0 min read · Update at Jan 1, 0001</div>
+          Thrift Layer
+          <div class="sub header">@ Yang Guang · Aug 20, 2019 · 1 min read · Update at Aug 20, 2019</div>
         </h1>
       </header>
-      <article class="markdown-body" style="margin-top: 2rem; font-size: 1.4rem;"></article>
+      <article class="markdown-body" style="margin-top: 2rem; font-size: 1.4rem;"><p>thrift分层结构解析</p>
+
+<h1 id="thrift">thrift</h1>
+
+<h2 id="thrift分层结构">thrift分层结构</h2>
+
+<p><img src="/img/thrift分层.png" alt="thrift" /></p>
+
+<h2 id="transport层">Transport层</h2>
+
+<p>Transport层提供了一个从网络中简单的抽象化的读写操作。这样使得thrift能将底层传输和其他部分解耦（如：序列化/反序列化）</p>
+
+<p>以下是Transport接口：</p>
+
+<ul>
+<li>open</li>
+<li>close</li>
+<li>read</li>
+<li>write</li>
+<li>flush</li>
+</ul>
+
+<p>除了上面的Transport接口，thrift还使用ServerTransport接口来接受和创建原始传输对象。顾名思义，ServerTransport主要用于服务端，通过传入一个连接来创建新的传输对象。其主要方法有：</p>
+
+<ul>
+<li>open</li>
+<li>listen</li>
+<li>accept</li>
+<li>close</li>
+</ul>
+
+<p>以下是Thrift支持语言中的一些可用的传输：</p>
+
+<ul>
+<li>file: read/write to/from a file on disk</li>
+<li>http: 顾名思义</li>
+</ul>
+
+<h2 id="protocol层">Protocol层</h2>
+
+<p>Protocol抽象化的定义了一种将内存数据接口映射到一种线型格式的机制。换句话说，一个Protocol指定了数据类型如何使用底层Transport来对自身进行编码/解码。因此Protocol实现了控制编码方案及负责（反）序列化。这种意义上的协议的一些实例包括JSON，XML，纯文本，compact binary（紧凑型二进制）。</p>
+
+<p>以下是Protocol接口：</p>
+
+<ul>
+<li>writeMessageBegin(name, type, seq)</li>
+<li>writeMessageEnd()</li>
+<li>writeStructBegin(name)</li>
+<li>writeStructEnd()</li>
+<li>writeFieldBegin(name, type, id)</li>
+<li>writeFieldEnd()</li>
+<li>writeFieldStop()</li>
+<li>writeMapBegin(ktype, vtype, size)</li>
+<li>writeMapEnd()</li>
+<li>writeListBegin(etype, size)</li>
+<li>writeListEnd()</li>
+<li>writeSetBegin(etype, size)</li>
+<li>writeSetEnd()</li>
+<li>writeBool(bool)</li>
+<li>writeByte(byte)</li>
+<li>writeI16(i16)</li>
+<li>writeI32(i32)</li>
+<li>writeI64(i64)</li>
+<li>writeDouble(double)</li>
+<li>writeString(string)</li>
+<li>name, type, seq = readMessageBegin()</li>
+<li>name, type, seq = readMessageEnd()</li>
+<li>name = readStructBegin()</li>
+<li>name = readStructEnd()</li>
+<li>name, type, id = readFieldBegin()</li>
+<li>name, type, id = readFieldEnd()</li>
+<li>k, v, size = readMapBegin()</li>
+<li>k, v, size = readMapEnd()</li>
+<li>etype, size = readListBegin()</li>
+<li>etype, size = readListEnd()</li>
+<li>etype, size = readSetBegin()</li>
+<li>etype, size = readSetEnd()</li>
+<li>bool = readBool()</li>
+<li>byte = readByte()</li>
+<li>i16 = readI16()</li>
+<li>i32 = readI32()</li>
+<li>i64 = readI64()</li>
+<li>double = readDouble()</li>
+<li>string = readString()</li>
+</ul>
+
+<p>Thrift Protocols 是面向流的设计。这里不需要任何明确的框架。例如，在开始序列化之前，它没必要知道一个字符串的长度或者list中元素的数量。Thrift支持的大多数语言可用的一些协议有:
+* <strong>binary</strong>:相当于简单的二进制编码&ndash;字段的长度和类型被编码为字节，后跟字段的实际值。(Fairly simple binary encoding &ndash; the length and type of a field are encoded as bytes followed by the actual value of the field.)
+* <strong>compact</strong>:参考 <a href="https://issues.apache.org/jira/browse/THRIFT-110">THRIFT-110</a>
+* <strong>json</strong></p>
+
+<h2 id="processor层">Processor层</h2>
+
+<p>一个Processor封装了从输入流读取数据和写入数据到输出流的能力。这些输入流和输出流由Protocol对象表示。Processor接口非常的简单</p>
+
+<pre><code class="language-go">interface TProcessor {
+    bool process(TProtocol in, TProtocol out) throws TException
+}
+</code></pre>
+
+<p>服务特定的Processor由编译器生成。Processor实质上是从线路中读取数据（使用输入协议），将处理委托给处理程序（handler，由用户实现），并且通过线路写入响应中（使用输出协议）。</p>
+
+<h2 id="server层">Server层</h2>
+
+<p>一个Server（服务）聚集了上述所有的功能：</p>
+
+<ul>
+<li>创建一个Transport</li>
+<li>从Transport中创建输入/输出Protocols</li>
+<li>基于输入/输出协议（Protocol）创建一个处理器（Processor）</li>
+<li>等待传入连接并且交给处理器（Processor）</li>
+</ul></article>
     </section>
 
     <footer class="ui attached segment dream-tags">
       
-      <span>No Tags</span>
+      
+      <a class="ui label" href="/tags/rpc" title="rpc">rpc</a>
+      
+      <a class="ui label" href="/tags/thrift" title="thrift">thrift</a>
+      
       
     </footer>
 
@@ -224,7 +340,6 @@
       
 
       
-        
       
     </section>
 
